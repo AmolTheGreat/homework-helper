@@ -1,0 +1,145 @@
+import tkinter as tk
+from tkinter import messagebox
+import pygetwindow as gw
+import pyautogui
+import threading
+import time
+import os
+
+# --- THE RUTHLESS HITLIST ---
+DISTRACTIONS = [
+    "youtube", "tiktok", "instagram", "facebook", "netflix", "roblox", "discord",
+    "task manager", "settings", "control panel", "cmd", "powershell"
+]
+
+class GuardianApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("AMOL GIRI: GUARDIAN AI")
+        self.root.geometry("450x650")
+        self.root.configure(bg="#020617")
+        self.root.attributes("-topmost", True)
+        
+        self.chances = 3 
+        self.is_running = False 
+        self.seconds_left = 0
+
+        # UI Header
+        self.status_label = tk.Label(root, text="SYSTEM: STANDBY", font=("Courier", 22, "bold"), fg="#38bdf8", bg="#020617")
+        self.status_label.pack(pady=10)
+        
+        self.chance_label = tk.Label(root, text=f"EXIT CHANCES: {self.chances}", font=("Helvetica", 14, "bold"), fg="#eab308", bg="#020617")
+        self.chance_label.pack()
+
+        # Triple Input
+        tk.Label(root, text="SET DURATION (ARROWS)", font=("Helvetica", 10), fg="#64748b", bg="#020617").pack(pady=(20, 5))
+        input_frame = tk.Frame(root, bg="#020617")
+        input_frame.pack()
+
+        entry_style = {"font": ("Consolas", 30), "width": 3, "bg": "#1e293b", "fg": "white", "border": 0, "justify": "center", "insertbackground": "white"}
+        self.h_entry = tk.Entry(input_frame, **entry_style); self.h_entry.insert(0, "00")
+        self.m_entry = tk.Entry(input_frame, **entry_style); self.m_entry.insert(0, "25")
+        self.s_entry = tk.Entry(input_frame, **entry_style); self.s_entry.insert(0, "00")
+        
+        self.h_entry.pack(side=tk.LEFT, padx=5)
+        tk.Label(input_frame, text=":", font=("Consolas", 25), fg="#38bdf8", bg="#020617").pack(side=tk.LEFT)
+        self.m_entry.pack(side=tk.LEFT, padx=5)
+        tk.Label(input_frame, text=":", font=("Consolas", 25), fg="#38bdf8", bg="#020617").pack(side=tk.LEFT)
+        self.s_entry.pack(side=tk.LEFT, padx=5)
+
+        for e in (self.h_entry, self.m_entry, self.s_entry):
+            e.bind("<Up>", lambda ev, t=e: self.adj(t, 1))
+            e.bind("<Down>", lambda ev, t=e: self.adj(t, -1))
+            e.bind("<Return>", lambda ev: self.parse_and_start())
+
+        self.timer_display = tk.Label(root, text="00:00:00", font=("Consolas", 50), fg="#94a3b8", bg="#020617")
+        self.timer_display.pack(pady=20)
+
+        self.start_btn = tk.Button(root, text="ENGAGE LOCKDOWN", command=self.parse_and_start, font=("Helvetica", 12, "bold"), bg="#22c55e", fg="white", width=20)
+        self.start_btn.pack(pady=10)
+
+        self.exit_btn = tk.Button(root, text="USE EXIT CHANCE", command=self.use_panic, font=("Helvetica", 12, "bold"), bg="#b91c1c", fg="white", width=25, state="disabled")
+        self.exit_btn.pack(pady=10)
+
+        tk.Label(root, text="BY AMOL", font=("Courier", 14, "bold"), fg="#38bdf8", bg="#020617").pack(pady=20)
+
+    def adj(self, target, delta):
+        try:
+            val = int(target.get()) + delta
+            if val < 0: val = 59
+            elif val > 59 and target != self.h_entry: val = 0
+            target.delete(0, tk.END); target.insert(0, f"{val:02d}")
+        except: pass
+
+    def snipe(self):
+        """Forces the current window to close if it's a distraction"""
+        try:
+            # Check every single open window title
+            for win in gw.getAllWindows():
+                title = str(win.title).lower()
+                if any(word in title for word in DISTRACTIONS):
+                    if "amol giri" not in title and "guardian" not in title:
+                        # Make sure we only kill if it's actually the active one or 
+                        # just kill it anyway to be safe
+                        win.activate()
+                        time.sleep(0.05)
+                        pyautogui.hotkey('ctrl', 'w')
+        except:
+            pass
+
+    def parse_and_start(self):
+        try:
+            h, m, s = int(self.h_entry.get()), int(self.m_entry.get()), int(self.s_entry.get())
+            total = h * 3600 + m * 60 + s
+            if total > 0:
+                self.is_running = True
+                self.seconds_left = float(total)
+                self.start_btn.config(state="disabled")
+                self.exit_btn.config(state="normal")
+                self.status_label.config(text="SYSTEM: REINFORCED", fg="#22c55e")
+                self.timer_display.config(fg="#ef4444")
+                
+                # First strike: Kill anything bad immediately
+                self.snipe()
+                
+                threading.Thread(target=self.run_logic, daemon=True).start()
+        except: messagebox.showerror("Error", "Check Time")
+
+    def use_panic(self):
+        if self.chances > 0:
+            self.is_running = False 
+            self.chances -= 1
+            self.timer_display.config(text="00:00:00", fg="#94a3b8")
+            self.exit_btn.config(state="disabled")
+            self.start_btn.config(state="normal")
+            self.chance_label.config(text=f"EXIT CHANCES: {self.chances}")
+            self.status_label.config(text="SYSTEM: STANDBY", fg="#38bdf8")
+        else: messagebox.showerror("LOCKED", "Zero chances!")
+
+    def run_logic(self):
+        while self.seconds_left > 0 and self.is_running:
+            h, rem = divmod(int(self.seconds_left), 3600)
+            m, s = divmod(rem, 60)
+            self.timer_display.config(text=f"{h:02d}:{m:02d}:{s:02d}")
+            
+            # The Sniper
+            self.snipe()
+            
+            time.sleep(0.5) 
+            self.seconds_left -= 0.5
+
+        if self.seconds_left <= 0 and self.is_running:
+            self.is_running = False
+            self.root.after(0, self.victory)
+
+    def victory(self):
+        self.chances += 1
+        self.start_btn.config(state="normal")
+        self.chance_label.config(text=f"EXIT CHANCES: {self.chances}")
+        self.status_label.config(text="SYSTEM: STANDBY", fg="#38bdf8")
+        messagebox.showinfo("VICTORY", "Goal Reached! +1 Chance.")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = GuardianApp(root)
+    root.mainloop()
